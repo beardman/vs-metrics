@@ -6,7 +6,7 @@
       <Value Profile="(Default)">ppereira@sychealthcaresiemens.onmicrosoft.com</Value>
     </Setting>
     <Setting Name="Token" Type="System.String" Scope="Application">
-      <Value Profile="(Default)">cy6sddoappyx35x63b364u36yoaubmbt7o2dmmuyjxyvyu4n52pq</Value>
+      <Value Profile="(Default)">...</Value>
     </Setting>
   </Settings>
 </SettingsFile>

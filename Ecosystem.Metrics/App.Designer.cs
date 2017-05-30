@@ -34,7 +34,7 @@ namespace Ecosystem.Metrics {
         
         [global::System.Configuration.ApplicationScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("cy6sddoappyx35x63b364u36yoaubmbt7o2dmmuyjxyvyu4n52pq")]
+        [global::System.Configuration.DefaultSettingValueAttribute("...")]
         public string Token {
             get {
                 return ((string)(this["Token"]));

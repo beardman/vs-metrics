@@ -1,4 +1,5 @@
 ﻿using Ecosystem.Metrics.Domain;
+using Ecosystem.Metrics.Helpers;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -15,7 +16,8 @@ namespace Ecosystem.Metrics
     public class Program
     {
         private const string ACCOUNT = "teamplay";
-        private const string ACCOUNT_INSTANCE = "teamplay.visualstudio.com";                                                                                                                                
+        private const string ACCOUNT_INSTANCE = "teamplay.visualstudio.com";
+        private const string SUCCESS_STATUS = "succeeded";
 
         static void Main(string[] args)
         {
@@ -36,18 +38,129 @@ namespace Ecosystem.Metrics
 
                 foreach (var definition in vstsProject.BuildDefinitions)
                 {
+                    Console.WriteLine($"Retriving builds for definition {definition.Name} of project {vstsProject.Name}");
                     definition.Builds = await GetBuildHistory(vstsProject.Id, definition.Id);
                 }
 
                 foreach (var definition in vstsProject.ReleaseDefinitions)
                 {
+                    Console.WriteLine($"Retriving releases for definition {definition.Name} of project {vstsProject.Name}");
                     definition.Releases = await GetReleaseHistory(vstsProject.Id, definition.Id);
                 }
 
-                foreach (var repo in vstsProject.Repositories)
+                //foreach (var repo in vstsProject.Repositories)
+                //{
+                //    repo.Commits = await GetGitCommitHistory(vstsProject.Id, repo.Id);
+                //}
+
+                #region Failure rate
+
+                var groupResult = vstsProject.BuildDefinitions[0].Builds
+                    .GroupBy(b => b.QueueTime.Date
+                            , b => new { Id = b.Id, BuilderNumber = b.BuildNumber, StartTime = b.StartTime, FinishTime = b.FinishTime, Result = b.Result, Status = b.Status }
+                            , (key, b) => new FailureRate() { QueueTime = key, FailedCount = b.Count(build => build.Result != SUCCESS_STATUS), SucceededCount = b.Count(build => build.Result == SUCCESS_STATUS), TotalBuilds = b.Count() });
+
+                #endregion
+
+                #region Failure Recovery Time
+
+                // 1) Get all failures and successes separately
+                var failures = vstsProject.BuildDefinitions[0].Builds
+                                    .Where(b => b.Result != SUCCESS_STATUS)
+                                    .Select(b => new FailureRecoveryTime()
+                                    {
+                                        FailedBuild = b,
+                                        SuccessBuild = null
+                                    }
+                                    )
+                                    .OrderBy(b => b.FailedBuild.QueueTime)
+                                    .ToList();
+
+                var successes = vstsProject.BuildDefinitions[0].Builds
+                                    .Where(b => b.Result == SUCCESS_STATUS)
+                                    .OrderBy(b => b.QueueTime)
+                                    .ToList();
+
+                // 2) Find next successful build
+                foreach (var failure in failures)
                 {
-                    repo.Commits = await GetGitCommitHistory(vstsProject.Id, repo.Id);
+                    var nextSuccess = successes.Where(s => s.QueueTime > failure.FailedBuild.QueueTime)
+                                               .OrderBy(s => s.QueueTime)
+                                               .FirstOrDefault();
+
+                    if (nextSuccess == null)
+                    {
+                        break;
+                    }
+
+                    failure.SuccessBuild = nextSuccess;
+
+                    //Console.WriteLine($"Fail:\tBuild Number: {failure.FailedBuild.BuildNumber}\tTime: {failure.FailedBuild.QueueTime.ToString("yyyy-MM-dd HH:mm:ss")}");
+                    //Console.WriteLine($"Corresponding Success:\tBuild Number: {failure.SuccessBuild.BuildNumber}\tTime: {failure.SuccessBuild.QueueTime.ToString("yyyy-MM-dd HH:mm:ss")}\n");
                 }
+
+                // 3) Remove failures with same success build
+                var buildsBySuccess = failures.GroupBy(f => f.SuccessBuild.Id, f => f, (key, f) => new { SuccessBuildId = key, Failures = f.ToList() });
+
+                List<FailureRecoveryTime> failureRateList = new List<FailureRecoveryTime>();
+
+                foreach (var item in buildsBySuccess)
+                {
+                    FailureRecoveryTime firstBuildFail = item.Failures.OrderBy(f => f.FailedBuild.QueueTime).First();
+
+                    failureRateList.Add(firstBuildFail);
+
+                    Console.WriteLine($"Failed build {firstBuildFail.FailedBuild.BuildNumber} at {firstBuildFail.FailedBuild.QueueTime.ToString("yyyy-MM-dd HH:mm:ss")} was resolved" +
+                                      $" by build {firstBuildFail.SuccessBuild.BuildNumber} which finished at {firstBuildFail.SuccessBuild.FinishTime.ToString("yyyy-MM-dd HH:mm:ss")}\n");
+                }
+
+                #endregion
+
+                #region Lead Time
+
+                var leadTimes = vstsProject.BuildDefinitions[0].Builds
+                                    .OrderBy(b => b.QueueTime)
+                                    .Where(b => b.Result == SUCCESS_STATUS)
+                                    .Select(b => new LeadTime()
+                                    {
+                                        BuildId = b.Id,
+                                        BuildNumber = b.BuildNumber,
+                                        BuildDuration = ComputeDateDifferenceInSeconds(b.QueueTime, b.FinishTime),
+                                        BuildDate = b.QueueTime
+                                    }
+                                    );
+
+                foreach (var lead in leadTimes)
+                {
+                    Console.WriteLine($"Lead Time for Build: {lead.BuildNumber}(Id: #{lead.BuildId}) on {lead.BuildDate.ToString("yyyy-MM-dd HH:mm:ss")} was: {lead.BuildDuration}");
+                }
+
+                #endregion
+
+                #region Interval
+
+                //var intervals = vstsProject.BuildDefinitions[0].Builds.OrderBy(b => b.QueueTime).Select(b => new Interval() { FirstBuildId = b.Id, FirstBuildNumber = b.BuildNumber, FirstBuildDate = b.QueueTime });
+
+                //foreach (var item in intervals)
+                //{
+                //    var nextBuild = vstsProject.BuildDefinitions[0].Builds.OrderBy(b => b.QueueTime).Where(b => b.QueueTime > item.FirstBuildDate).FirstOrDefault();
+
+                //    if (nextBuild == null)
+                //    {
+                //        break;
+                //    }
+
+                //    item.NextBuildId = nextBuild.Id;
+                //    item.NextBuildNumber = nextBuild.BuildNumber;
+                //    item.NextBuildDate = nextBuild.QueueTime;
+                //    item.ElapsedTime = ComputeDateDifferenceInSeconds(item.FirstBuildDate, item.NextBuildDate);
+
+                //    Console.WriteLine()
+                //}
+
+                #endregion
+
+                Console.WriteLine("Doing stuff");
             }
 
             //CrunchData();
@@ -55,6 +168,12 @@ namespace Ecosystem.Metrics
             Console.WriteLine($"Process finished at {DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")}");
             Console.WriteLine("Process finished. Press enter key to terminate...");
             Console.ReadLine();
+        }
+
+        private double ComputeDateDifferenceInSeconds(DateTime start, DateTime end)
+        {
+            TimeSpan ts = end.Subtract(start);
+            return ts.TotalSeconds;
         }
 
         private void CrunchData(List<Project> vstsProjects)

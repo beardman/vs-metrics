@@ -60,6 +60,10 @@
     <Compile Include="Domain\Release.cs" />
     <Compile Include="Domain\ReleaseDefinition.cs" />
     <Compile Include="Domain\Repository.cs" />
+    <Compile Include="Helpers\FailureRate.cs" />
+    <Compile Include="Helpers\FailureRecoveryTime.cs" />
+    <Compile Include="Helpers\Interval.cs" />
+    <Compile Include="Helpers\LeadTime.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>

@@ -25,7 +25,7 @@ namespace Ecosystem.Metrics {
         
         [global::System.Configuration.ApplicationScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("ppereira@sychealthcaresiemens.onmicrosoft.com")]
+        [global::System.Configuration.DefaultSettingValueAttribute(".")]
         public string Username {
             get {
                 return ((string)(this["Username"]));
@@ -34,7 +34,7 @@ namespace Ecosystem.Metrics {
         
         [global::System.Configuration.ApplicationScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("...")]
+        [global::System.Configuration.DefaultSettingValueAttribute(".")]
         public string Token {
             get {
                 return ((string)(this["Token"]));
